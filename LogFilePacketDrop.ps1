@@ -1,29 +1,66 @@
 ﻿param(
     [Parameter(Mandatory=$True)]
-    [string]$IPAddr
+    [string]$IPAddr,
+    [Parameter(Mandatory=$True)]
+    [string]$Time
 )
 
-$packets
+$results = New-Object -TypeName Win32_PingStatus
+
+Function PingTarget
+    {
+        Param(
+            [parameter(position=0)]
+            $Addr
+         )
+        $job = Test-Connection $Addr -Delay 1 -Count CalculateTime -AsJob
+        if ($job.jobStateInfo.State -ne "Running")
+            {
+                $global:results = Receive-Job $job
+            }
+    }
+
+Function CalculateTime
+    {
+        $seconds = ""  
+        [int]$SplitTime = $Time.Split(":")
+        If ($SplitTime[0] > 1)
+            {
+                $seconds += 60 * 60 * $SplitTime[0]
+            }
+        If ($SplitTime[1] > 1)
+            {
+                $seconds += 60 * $SplitTime[1]
+            } 
+        If ($SplitTime[2] > 1)
+            {
+                $seconds += $SplitTime[2]
+            }
+        return $seconds    
+    }
 
 Function CheckPacketDrop
     {
         Param(
             [parameter(position=0)]
-            $packets,
-            [parameter(position=1)]
-            $targetname
+            $packets
          )
+        PingTarget $IPAddr
         $successcount = 0
         $errorcount = 0
-        foreach ($packet in $packets)
+        while ($i = 0, $i -lt $packets.Count)
             {
-                if ($packet -like "Reply from*")
+                foreach ($packet in $packets)
                     {
-                        $successcount += 1
-                    }
-                else
-                    {
-                        $errorcount += 1
+                        if ($packet[$i] -like "Reply from*")
+                            {
+                                $successcount += 1
+                            }
+                        else
+                            {
+                                $errorcount += 1
+                            }
+                        $i += 1    
                     }
             }
         $errorpercentage = $errorcount / $successcount * 100
@@ -44,8 +81,5 @@ Function CheckPacketDrop
 
 while ($true)
     {
-        $dlinkswitch = get-content "C:\Users\Kyleb\dlink.log"
-        $hpswitch = get-content "C:\Users\Kyleb\hp.log"
-        CheckPacketDrop $dlinkswitch "Primary DLink"
-        CheckPacketDrop $hpswitch "Primary HP PoE"
+        CheckPacketDrop($results)
     }
