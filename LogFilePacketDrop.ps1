@@ -5,38 +5,38 @@
     [string]$Time
 )
 
-$results = New-Object -TypeName Win32_PingStatus
-
 Function PingTarget
     {
         Param(
             [parameter(position=0)]
             $Addr
          )
-        $job = Test-Connection $Addr -Delay 1 -Count CalculateTime -AsJob
+        $countint = CalculateTime
+        $job = Test-Connection $Addr -Delay 1 -Count $countint -AsJob
         if ($job.jobStateInfo.State -ne "Running")
             {
-                $global:results = Receive-Job $job
+                $results = Receive-Job $job
+                return $results 
             }
     }
 
 Function CalculateTime
     {
         $seconds = ""  
-        [int]$SplitTime = $Time.Split(":")
-        If ($SplitTime[0] > 1)
+        $SplitTime = $Time.Split(":") | % {iex $_}
+        If ($SplitTime[0] -gt 0)
             {
                 $seconds += 60 * 60 * $SplitTime[0]
             }
-        If ($SplitTime[1] > 1)
+        If ($SplitTime[1] -gt 0)
             {
                 $seconds += 60 * $SplitTime[1]
             } 
-        If ($SplitTime[2] > 1)
+        If ($SplitTime[2] -gt 0)
             {
                 $seconds += $SplitTime[2]
             }
-        return $seconds    
+        return $seconds  
     }
 
 Function CheckPacketDrop
@@ -63,6 +63,12 @@ Function CheckPacketDrop
                         $i += 1    
                     }
             }
+        Write-Output $successcount
+        Write-Output $errorcount
+    }
+
+Function CheckStatus
+    {
         $errorpercentage = $errorcount / $successcount * 100
         Write-Host "$targetname`: "
         Write-Host "$successcount successful packets"
@@ -79,7 +85,6 @@ Function CheckPacketDrop
             }
     }
 
-while ($true)
-    {
-        CheckPacketDrop($results)
-    }
+#CheckPacketDrop($results)
+
+PingTarget $IPAddr
