@@ -5,6 +5,8 @@
     [string]$Time
 )
 
+$results = New-Object -TypeName psobject
+
 Function PingTarget
     {
         Param(
@@ -12,11 +14,10 @@ Function PingTarget
             $Addr
          )
         $countint = CalculateTime
-        $job = Test-Connection $Addr -Delay 1 -Count $countint -AsJob
-        if ($job.jobStateInfo.State -ne "Running")
+        $global:results += & 'c:\windows\SysWOW64\PING.EXE' $Addr -n $countint
+        for ($i=0; $i -lt $countint; $i++)
             {
-                $results = Receive-Job $job
-                return $results 
+                CheckPacketDrop $global:results
             }
     }
 
@@ -45,22 +46,20 @@ Function CheckPacketDrop
             [parameter(position=0)]
             $packets
          )
-        PingTarget $IPAddr
         $successcount = 0
         $errorcount = 0
-        while ($i = 0, $i -lt $packets.Count)
+        for ($i = 1; $i -lt $packets.Count; $i++)
             {
                 foreach ($packet in $packets)
                     {
-                        if ($packet[$i] -like "Reply from*")
+                        if ($packet -like "Reply from*")
                             {
                                 $successcount += 1
                             }
                         else
                             {
                                 $errorcount += 1
-                            }
-                        $i += 1    
+                            }    
                     }
             }
         Write-Output $successcount
@@ -84,7 +83,5 @@ Function CheckStatus
                 Write-Host "`r`n"
             }
     }
-
-#CheckPacketDrop($results)
 
 PingTarget $IPAddr
